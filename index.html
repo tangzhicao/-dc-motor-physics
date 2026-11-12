@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大学物理交互式仿真课件 · 直流电动机的工作原理 (8幕渐进式教学)</title>
+  <script type="module" crossorigin src="./assets/index-xAflKB0q.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-CF0wZVU2.css">
+</head>
+<body class="bg-slate-950 text-slate-100 select-none overflow-hidden m-0 p-0 font-sans">
+  <!-- 16:9 演示主舞台容器 -->
+  <div id="presentation-container" class="presentation-stage">
+    
+    <!-- 顶部科技风导航栏 / Header -->
+    <header class="top-nav">
+      <div class="logo-area">
+        <div class="badge-icon">⚡</div>
+        <div class="title-group">
+          <h1 class="main-title">大学物理虚拟仿真课件 · 直流有刷电动机</h1>
+          <p class="subtitle">电磁感应原理 · 8幕渐进式启发教学 · 换向微观机理</p>
+        </div>
+      </div>
+
+      <div class="header-tools">
+        <!-- 视角预设快捷按钮 -->
+        <div class="view-preset-group">
+          <span class="tool-label">视角:</span>
+          <button id="btn-view-iso" class="btn-subtle active" title="3D立体透视">3D透视</button>
+          <button id="btn-view-front" class="btn-subtle" title="正视观察线圈受力面">正视</button>
+          <button id="btn-view-top" class="btn-subtle" title="俯视观察磁感线平面">俯视</button>
+          <button id="btn-view-brush" class="btn-subtle" title="特写观察换向器与电刷接触部">换向特写</button>
+          <button id="btn-reset-cam" class="btn-subtle" title="复位视角 (快捷键: R)">复位</button>
+        </div>
+
+        <!-- 3D 零件名称标签开关 (按需开启) -->
+        <button id="btn-toggle-labels" class="btn-subtle" title="开启/关闭3D零件悬浮标签">
+          🏷️ 零件标签
+        </button>
+
+        <!-- 全屏演示切换 -->
+        <button id="btn-fullscreen" class="btn-primary" title="全屏演示模式 (快捷键: F)">
+          <span class="icon-expand">⛶</span> 全屏演示
+        </button>
+      </div>
+    </header>
+
+    <!-- 核心 3D 渲染视口 (WebGL Canvas Container) -->
+    <main id="webgl-viewport" class="viewport-canvas"></main>
+
+    <!-- 3D 实时物理状态 HUD 浮层 (左上角) -->
+    <div class="hud-panel hud-physics">
+      <div class="hud-header">
+        <span class="pulse-dot"></span>
+        <span class="hud-title">动力与电磁参数实时监测</span>
+      </div>
+      <div class="hud-metrics">
+        <div class="metric-row">
+          <span class="metric-label">转子转角 &theta;:</span>
+          <span id="metric-angle" class="metric-value font-mono">0.0°</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">换向接触状态:</span>
+          <span id="metric-brush-state" class="metric-value status-active">静止磁场环境</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">磁场方向:</span>
+          <span class="metric-value font-mono text-cyan-400">N极 (左红) &rarr; S极 (右蓝)</span>
+        </div>
+        <div class="metric-row">
+          <span class="metric-label">核心物理公式:</span>
+          <span id="metric-formula" class="metric-value text-amber-300 font-mono">B = 常量</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 场景2专属：左侧显眼电源与电动机装配控制面板 -->
+    <div id="act2-power-control-panel" class="hud-panel act2-power-card hidden">
+      <div class="hud-header">
+        <span class="power-status-dot" id="act2-power-dot"></span>
+        <span class="hud-title">⚡ 实验装置与电源控制 (J1202A)</span>
+      </div>
+      <div class="act2-power-body">
+        <!-- 超显眼大尺寸电源主开关按钮 -->
+        <button id="btn-act2-main-power" class="btn-power-switch off" title="点击闭合/断开实验电源">
+          <span class="switch-icon" id="act2-switch-icon">⏻</span>
+          <div class="switch-text-group">
+            <span class="switch-main-text" id="act2-switch-main-text">闭合电源 (通电)</span>
+            <span class="switch-sub-text" id="act2-switch-sub-text">当前断开 · 线框静止水平面</span>
+          </div>
+        </button>
+
+        <!-- 切换电流流向按钮 -->
+        <button id="btn-act2-toggle-current" class="btn-current-dir" title="切换直流电源极性，使电流反向流动">
+          <span class="icon-dir">⇄</span>
+          <span id="act2-current-dir-text">流向: 逆时针 (+红入 ➔ -绿出)</span>
+        </button>
+
+        <!-- 零件装配与改造模块 (添加换向器与电刷) -->
+        <div class="act2-assembly-section">
+          <div class="assembly-section-title">
+            <span>🛠️ 装置改造装配 (改变运动状态)</span>
+          </div>
+          <div class="assembly-buttons-row">
+            <button id="btn-act2-toggle-commutator" class="btn-assemble" title="给实验装置添加/移除半圆铜环换向器">
+              <span class="btn-assemble-icon">➕</span>
+              <span id="act2-btn-commutator-text">添加换向器</span>
+            </button>
+            <button id="btn-act2-toggle-brushes" class="btn-assemble" title="给实验装置添加/移除固定石墨电刷">
+              <span class="btn-assemble-icon">➕</span>
+              <span id="act2-btn-brushes-text">添加电刷</span>
+            </button>
+          </div>
+          <div id="act2-assembly-badge" class="assembly-status-badge badge-pending">
+            <span class="badge-dot">●</span>
+            <span id="act2-assembly-badge-text">当前装置：单线框 (通电仅偏转90°)</span>
+          </div>
+        </div>
+
+        <!-- 电枢线圈与换向片组数升级模块 (参考图1双组、图2多组密集电枢) -->
+        <div class="act2-upgrade-section">
+          <div class="assembly-section-title">
+            <span>🚀 电枢线圈与换向器组数升级</span>
+          </div>
+          <div class="coil-mode-grid">
+            <button id="btn-coil-mode-1" class="btn-coil-mode active" title="单组线圈 (1组环 · 2槽半圆片)">
+              <div class="mode-tag">基础 1组环</div>
+              <div class="mode-name">单组线圈</div>
+              <div class="mode-sub">100%脉动·降为0</div>
+            </button>
+            <button id="btn-coil-mode-2" class="btn-coil-mode" title="双组正交线圈 (2组环 · 4槽换向器，参考图1)">
+              <div class="mode-tag tag-cyan">进阶 2组环</div>
+              <div class="mode-name">双组正交</div>
+              <div class="mode-sub">29.3%脉动·无死点</div>
+            </button>
+            <button id="btn-coil-mode-3" class="btn-coil-mode" title="多组密集电枢 (8组环 · 16槽换向器，参考图2)">
+              <div class="mode-tag tag-purple">工业 8组环</div>
+              <div class="mode-name">多组密集</div>
+              <div class="mode-sub">&lt;2%波动·恒速平滑</div>
+            </button>
+          </div>
+          <div class="coil-meta-row">
+            <button id="btn-toggle-core" class="btn-toggle-core active" title="显示或隐藏转子硅钢片铁芯">
+              <span id="act2-btn-core-icon">🔷</span>
+              <span id="act2-btn-core-text">转子铁芯: 开</span>
+            </button>
+            <div class="active-coil-indicator" id="act2-active-coil-indicator">
+              <span class="dot-live"></span>
+              <span id="act2-active-coil-text">工作: 线圈1</span>
+            </div>
+          </div>
+          <div id="act2-coil-ripple-badge" class="coil-ripple-badge">
+            <span class="ripple-tag">转矩</span>
+            <span id="act2-coil-ripple-text">单组工作 · 转矩随 |cosθ| 脉动 100% (最低降至0)</span>
+          </div>
+        </div>
+
+        <!-- 电磁动力学参数调节：电流 I 与 磁场 B -->
+        <div class="act2-params-section">
+          <div class="params-section-title">📊 电磁参数调节 (F = ILB)</div>
+          
+          <div class="param-slider-row">
+            <div class="slider-label-row">
+              <span class="param-name">电流强度 I</span>
+              <span class="param-val" id="act2-val-current">2.0 A</span>
+            </div>
+            <input type="range" id="act2-slider-current" class="param-range-slider" min="0.5" max="4.0" step="0.1" value="2.0">
+          </div>
+
+          <div class="param-slider-row">
+            <div class="slider-label-row">
+              <span class="param-name">磁感应强度 B</span>
+              <span class="param-val" id="act2-val-field">1.0 T</span>
+            </div>
+            <input type="range" id="act2-slider-field" class="param-range-slider" min="0.5" max="2.0" step="0.1" value="1.0">
+          </div>
+        </div>
+
+        <!-- 持续旋转专属控制条 (当换向器与电刷均装配时可用) -->
+        <div id="act2-continuous-controls" class="act2-continuous-section hidden">
+          <div class="params-section-title">🔄 持续旋转运行调控</div>
+          <div class="param-slider-row">
+            <div class="slider-label-row">
+              <span class="param-name">仿真转速倍率</span>
+              <span class="param-val" id="act2-val-speed">1.0&times;</span>
+            </div>
+            <input type="range" id="act2-slider-speed" class="param-range-slider" min="0.2" max="2.0" step="0.1" value="1.0">
+          </div>
+          <div class="motion-btn-row">
+            <button id="btn-act2-pause-spin" class="btn-motion-ctrl" title="暂停/恢复电机旋转">
+              <span id="act2-pause-icon">⏸️</span>
+              <span id="act2-pause-text">暂停观察</span>
+            </button>
+            <button id="btn-act2-step-spin" class="btn-motion-ctrl" title="按步长单步推进转角(+15°)">
+              <span>⏭️</span>
+              <span>单步(+15°)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 教学引导提示 -->
+        <div class="act2-hint-box">
+          <div class="hint-title">🎯 教学探究提示</div>
+          <div class="hint-content" id="act2-hint-text">
+            断电时已在导线上标出<strong>电流流动方向</strong>（橙黄箭头）。请先用<strong>左手定则</strong>判断线框两侧安培力方向，再点击上方开关通电验证！若要让装置<strong>一直旋转下去</strong>，请点击上方装配<strong>换向器</strong>与<strong>电刷</strong>。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 场景4专属教学提示浮层 (居中靠上) -->
+    <div id="act4-physics-note" class="act-physics-note-banner hidden">
+      <div class="note-icon">💡</div>
+      <div class="note-text">
+        <strong>【物理本质剖析】</strong>：力矩为零不代表角速度为零，线圈由于转动惯量会冲过平衡位置；越过平衡位置后受反向制动力矩阻碍，在阻尼作用下来回减速摆动，最终趋于稳定。（理想化物理教学模型）
+      </div>
+    </div>
+
+    <!-- 物理量色彩图例 (左下角) -->
+    <div class="hud-legend">
+      <div class="legend-title">🎨 电磁物理量图例 (左手定则)</div>
+      <div class="legend-items">
+        <div class="legend-item">
+          <span class="legend-color bg-cyan"></span>
+          <span>磁感应强度 <strong>B</strong> (N &rarr; S 水平向右)</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-color bg-amber"></span>
+          <span>导线电流 <strong>I</strong> (流向换向片)</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-color bg-green"></span>
+          <span>安培力 <strong>F = I(L&times;B)</strong> (左手定则)</span>
+        </div>
+        <div class="legend-item">
+          <span class="legend-color bg-magenta"></span>
+          <span>电磁力矩 <strong>M</strong> 与旋转方向</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧可折叠交互控制面板 (在后几幕可自由调配) -->
+    <aside id="side-panel" class="control-drawer">
+      <div class="drawer-header">
+        <h2>🛠️ 物理与机械控制面板</h2>
+        <button id="btn-toggle-drawer" class="btn-icon" title="收起/展开面板">⇥</button>
+      </div>
+
+      <div class="drawer-content custom-scrollbar">
+        <!-- 观察模式切换卡片 -->
+        <section class="control-card">
+          <h3 class="card-title">🔍 结构观察模式</h3>
+          <div class="mode-grid">
+            <button id="mode-normal" class="btn-mode active">常规装配</button>
+            <button id="mode-xray" class="btn-mode">透明外壳</button>
+            <button id="mode-highlight" class="btn-mode">内部高亮</button>
+            <button id="mode-coil" class="btn-mode">单独线圈</button>
+            <button id="mode-commutator" class="btn-mode">换向器电刷</button>
+            <button id="mode-exploded" class="btn-mode">爆炸拆解</button>
+          </div>
+        </section>
+
+        <!-- 物理矢量独立显隐卡片 -->
+        <section class="control-card">
+          <h3 class="card-title">📐 电磁矢量图层开关</h3>
+          <div class="vectors-list">
+            <label class="part-item">
+              <input type="checkbox" id="toggle-layer-bfield" checked>
+              <span class="legend-color bg-cyan"></span>
+              <span class="part-name">定子磁感线 & 磁场方向 B</span>
+            </label>
+            <label class="part-item">
+              <input type="checkbox" id="toggle-layer-current" checked>
+              <span class="legend-color bg-amber"></span>
+              <span class="part-name">线圈有效边导线电流 I</span>
+            </label>
+            <label class="part-item">
+              <input type="checkbox" id="toggle-layer-forces" checked>
+              <span class="legend-color bg-green"></span>
+              <span class="part-name">两侧安培力矢量 F (左手定则)</span>
+            </label>
+            <label class="part-item">
+              <input type="checkbox" id="toggle-layer-rotarc" checked>
+              <span class="legend-color bg-magenta"></span>
+              <span class="part-name">电磁驱动力矩 & 转向指示</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- 旋转与动力控制区 -->
+        <section class="control-card">
+          <h3 class="card-title">🔄 转轴动力学控制</h3>
+          <div class="button-group">
+            <button id="btn-toggle-spin" class="btn-action active">
+              <span id="spin-icon">⏸</span> <span id="spin-text">暂停旋转</span>
+            </button>
+            <button id="btn-step-spin" class="btn-action" title="单步慢速旋转 15°">
+              <span>↷</span> 步进 15°
+            </button>
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>转速调节:</span>
+              <span id="val-speed" class="font-mono">1.0x</span>
+            </div>
+            <input type="range" id="slider-speed" min="0" max="3" step="0.1" value="1.0" class="tech-slider">
+          </div>
+
+          <div class="slider-control">
+            <div class="slider-label-row">
+              <span>手动精确调角:</span>
+              <span id="val-manual-angle" class="font-mono">0°</span>
+            </div>
+            <input type="range" id="slider-angle" min="0" max="360" step="1" value="0" class="tech-slider">
+          </div>
+        </section>
+
+        <!-- 零件独立显隐清单 -->
+        <section class="control-card">
+          <div class="card-title-row">
+            <h3 class="card-title">🧩 零件独立显隐</h3>
+            <button id="btn-toggle-all-parts" class="btn-link">全部显示</button>
+          </div>
+          <div class="parts-list">
+            <label class="part-item">
+              <input type="checkbox" id="toggle-part-magnets" checked>
+              <span>🧲</span>
+              <span class="part-name">定子永磁体 (N极/S极极靴)</span>
+            </label>
+            <label class="part-item">
+              <input type="checkbox" id="toggle-part-coil" checked>
+              <span>🔄</span>
+              <span class="part-name">转子矩形线圈 (漆包铜线)</span>
+            </label>
+            <label class="part-item">
+              <input type="checkbox" id="toggle-part-shaft" checked>
+              <span>🔩</span>
+              <span class="part-name">镀铬转轴 & 硅钢铁芯</span>
+            </label>
+            <label class="part-item">
+              <input type="checkbox" id="toggle-part-commutator" checked>
+              <span>🟡</span>
+              <span class="part-name">双半环换向器 (带绝缘缝)</span>
+            </label>
+            <label class="part-item">
+              <input type="checkbox" id="toggle-part-brushes" checked>
+              <span>⬛</span>
+              <span class="part-name">固定石墨电刷 & 铜弹簧架</span>
+            </label>
+            <label class="part-item">
+              <input type="checkbox" id="toggle-part-power" checked>
+              <span>🔋</span>
+              <span class="part-name">直流供电箱 & 闭合导线</span>
+            </label>
+            <label class="part-item">
+              <input type="checkbox" id="toggle-part-base" checked>
+              <span>⚙️</span>
+              <span class="part-name">工业底板 & 轴承支架</span>
+            </label>
+          </div>
+        </section>
+      </div>
+    </aside>
+
+    <!-- 底部 8 幕渐进式教学演化导航系统 -->
+    <footer class="act-navigation-bar">
+      <!-- 8 幕进度步骤条 -->
+      <div class="act-timeline">
+        <div class="act-step active" data-act="1"><span class="step-num">1</span> 纯磁场</div>
+        <div class="act-step" data-act="2"><span class="step-num">2</span> 通电导线线框</div>
+        <div class="act-step" data-act="3"><span class="step-num">3</span> 形成线圈</div>
+        <div class="act-step" data-act="4"><span class="step-num">4</span> 为什么停转？</div>
+        <div class="act-step" data-act="5"><span class="step-num">5</span> 引入换向器</div>
+        <div class="act-step" data-act="6"><span class="step-num">6</span> 换向微观过程</div>
+        <div class="act-step" data-act="7"><span class="step-num">7</span> 完整电机运转</div>
+        <div class="act-step" data-act="8"><span class="step-num">8</span> 拆解自由探究</div>
+      </div>
+
+      <!-- 下层：控制按钮与教学讲解卡片 -->
+      <div class="act-content-row">
+        <div class="act-nav-controls">
+          <button id="btn-prev-act" class="btn-act-nav" title="上一幕 (快捷键: ←)">
+            <span>&larr;</span> 上一幕
+          </button>
+          <button id="btn-act-playpause" class="btn-act-action" title="播放 / 暂停 (快捷键: Space)">
+            <span id="act-play-icon">⏸</span> 暂停
+          </button>
+          <button id="btn-act-restart" class="btn-act-action" title="重新开始本幕演示">
+            <span>↺</span> 重放
+          </button>
+          <!-- 动态场景专属交互按钮槽位 -->
+          <div id="act-custom-action-slot"></div>
+        </div>
+
+        <div class="act-description-card">
+          <div class="act-badge-row">
+            <span id="act-number-tag" class="act-badge">第 1 幕 / 共 8 幕</span>
+            <h2 id="act-title-text" class="act-title">第 1 幕：静止磁场环境构建</h2>
+          </div>
+          <p id="act-desc-text" class="act-desc">
+            画面中仅呈现红色 N 极与蓝色 S 极永磁体。两极之间空气隙中激发出水平方向由 N 极指向 S 极的均匀磁感应线。
+          </p>
+        </div>
+
+        <div class="act-nav-right">
+          <button id="btn-next-act" class="btn-act-nav primary" title="下一幕 (快捷键: &rarr;)">
+            下一幕 <span>&rarr;</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 键盘快捷键提示条 -->
+      <div class="keyboard-hints">
+        <span>快捷键:</span>
+        <kbd>&larr;</kbd> <kbd>&rarr;</kbd> 切幕
+        <kbd>Space</kbd> 播放/暂停
+        <kbd>F</kbd> 全屏
+        <kbd>R</kbd> 复位
+      </div>
+    </footer>
+  </div>
+
+</body>
+</html>
